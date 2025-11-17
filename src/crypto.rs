@@ -69,12 +69,14 @@ pub fn session_key(inkey: &str, peerkey: &str) -> Result<Vec<u8>, anyhow::Error>
 }
 
 pub fn encryption(key: &[u8], input: &str) -> Result<(), anyhow::Error> {
-    // Read the plain text
-    let plaintext = std::fs::read(input)?;
-
     if key.len() != 32 {
         anyhow::bail!("Encryption key must be 32 bytes long");
     }
+    let enc_key = key[..16].to_vec();
+    let hmac_key = key[16..].to_vec();
+
+    // Read the plain text
+    let plaintext = std::fs::read(input)?;
 
     // Generate a random IV
     let mut iv = [0u8; 16];
@@ -82,18 +84,15 @@ pub fn encryption(key: &[u8], input: &str) -> Result<(), anyhow::Error> {
 
     // Encrypt with AES-128-CBC
     let cipher = Cipher::aes_128_cbc();
-    let ciphertext = encrypt(cipher, &key[..16], Some(&iv), plaintext.as_slice())?;
+    let ciphertext = encrypt(cipher, enc_key.as_slice(), Some(&iv), plaintext.as_slice())?;
 
     // Prepare data for HMAC
-    let mut mac_data = Vec::with_capacity(key.len() + ciphertext.len());
+    let mut mac_data = Vec::with_capacity(iv.len() + ciphertext.len());
     mac_data.extend_from_slice(&iv);
     mac_data.extend_from_slice(&ciphertext);
 
     // Generate SHA256-HMAC
-    let hmac_key = PKey::hmac(&key[16..])?;
-    let mut signer = Signer::new(MessageDigest::sha256(), &hmac_key)?;
-    signer.update(&mac_data)?;
-    let hmac = signer.sign_to_vec()?;
+    let hmac = generate_hmac(&mac_data, hmac_key.as_slice())?;
 
     // Export the ciphertext, IV and tag
     std::fs::write("ciphertext.bin", ciphertext)?;
@@ -101,4 +100,12 @@ pub fn encryption(key: &[u8], input: &str) -> Result<(), anyhow::Error> {
     std::fs::write("tag.bin", hmac)?;
 
     Ok(())
+}
+
+fn generate_hmac(data: &[u8], key: &[u8]) -> Result<Vec<u8>, anyhow::Error> {
+    let hmac_key = PKey::hmac(key)?;
+    let mut signer = Signer::new(MessageDigest::sha256(), &hmac_key)?;
+    signer.update(data)?;
+    let hmac = signer.sign_to_vec()?;
+    Ok(hmac)
 }
