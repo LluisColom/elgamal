@@ -43,7 +43,8 @@ fn main() -> Result<(), anyhow::Error> {
             println!("Parameter generation successful");
         }
         Command::Encrypt { peer_key, document } => {
-            // ensure!();
+            anyhow::ensure!(std::fs::exists(&peer_key)?, "Peer key file does not exist");
+            anyhow::ensure!(std::fs::exists(&document)?, "Plaintext file does not exist");
             // Generate a new ephemeral keypair
             crypto::gen_priv_key(PARAM_FILE, EPH_PRIV_FILE)?;
             crypto::gen_pub_key(PRIV_FILE, EPH_PUB_FILE)?;
