@@ -113,8 +113,8 @@ pub fn decryption(key: &[u8], iv: &[u8], input: &[u8], hmac: &[u8]) -> Result<()
     if key.len() != SESSION_KEY_SIZE {
         anyhow::bail!("Encryption key must be {} bytes long", SESSION_KEY_SIZE);
     }
-    let enc_key = key[..AES_KEY_SIZE].to_vec();
-    let hmac_key = key[AES_KEY_SIZE..].to_vec();
+    let enc_key = &key[..AES_KEY_SIZE];
+    let hmac_key = &key[AES_KEY_SIZE..];
 
     // HMAC verification
     if !verify_hmac(&hmac_key, &iv, &input, &hmac)? {
