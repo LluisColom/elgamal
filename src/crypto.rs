@@ -45,11 +45,9 @@ pub fn gen_pub_key(input: &str, output: &str) -> Result<(), anyhow::Error> {
     Ok(())
 }
 
-pub fn gen_secret(inkey: &str, peerkey: &str, output: &str) -> Result<(), anyhow::Error> {
+pub fn session_key(inkey: &str, peerkey: &str) -> Result<Vec<u8>, anyhow::Error> {
     let output = Command::new("openssl")
-        .args([
-            "pkeyutl", "-derive", "-inkey", inkey, "-peerkey", peerkey, "-out", output,
-        ])
+        .args(["pkeyutl", "-derive", "-inkey", inkey, "-peerkey", peerkey])
         .output()?;
 
     if !output.status.success() {
@@ -58,16 +56,15 @@ pub fn gen_secret(inkey: &str, peerkey: &str, output: &str) -> Result<(), anyhow
             String::from_utf8_lossy(&output.stderr)
         );
     }
-    Ok(())
-}
 
-pub fn process_secret(input: &str) -> Result<Vec<u8>, anyhow::Error> {
-    // Read the shared secret
-    let shared_secret = std::fs::read(input)?;
+    // Read from stdout (binary data)
+    let shared_secret = output.stdout;
+
     // Hash the shared secret
     let mut hasher = Sha256::new();
     hasher.update(shared_secret.as_slice());
     let digest = hasher.finish();
+
     Ok(digest.to_vec())
 }
 
