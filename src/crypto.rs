@@ -104,7 +104,12 @@ pub fn encryption(key: &[u8], input: &str) -> Result<(Vec<u8>, Vec<u8>, Vec<u8>)
     Ok((iv.to_vec(), ciphertext, hmac))
 }
 
-pub fn decryption(key: &[u8], iv: &[u8], input: &[u8], hmac: &[u8]) -> Result<(), anyhow::Error> {
+pub fn decryption(
+    key: &[u8],
+    iv: &[u8],
+    input: &[u8],
+    hmac: &[u8],
+) -> Result<Vec<u8>, anyhow::Error> {
     if key.len() != SESSION_KEY_SIZE {
         anyhow::bail!("Encryption key must be {} bytes long", SESSION_KEY_SIZE);
     }
@@ -120,9 +125,7 @@ pub fn decryption(key: &[u8], iv: &[u8], input: &[u8], hmac: &[u8]) -> Result<()
     let cipher = Cipher::aes_128_cbc();
     let plaintext = decrypt(cipher, enc_key, Some(&iv), input)?;
 
-    // Write to the file
-    std::fs::write("decoded.txt", plaintext)?;
-    Ok(())
+    Ok(plaintext)
 }
 
 fn generate_hmac(iv: &[u8], ciphertext: &[u8], key: &[u8]) -> Result<Vec<u8>, anyhow::Error> {

@@ -9,6 +9,7 @@ const PRIV_FILE: &str = "priv.pem";
 const PUB_FILE: &str = "pub.pem";
 const EPH_PRIV_FILE: &str = "ephpkey.pem";
 const EPH_PUB_FILE: &str = "ephpubkey.pem";
+const DECODED: &str = "decoded.txt";
 
 #[derive(Parser, Debug)]
 #[command(author, version, about)]
@@ -69,7 +70,8 @@ fn main() -> Result<(), anyhow::Error> {
             // Derive session key using ECDH
             let key = crypto::session_key(PRIV_FILE, EPH_PUB_FILE)?;
             // Decrypt the document + HMAC verification
-            crypto::decryption(&key, &iv, &ciphertext, &hmac)?;
+            let decoded = crypto::decryption(&key, &iv, &ciphertext, &hmac)?;
+            std::fs::write(DECODED, decoded)?;g
             // Remove ephemeral keypair
             std::fs::remove_file(EPH_PUB_FILE)?;
             println!("Document decryption successful");
