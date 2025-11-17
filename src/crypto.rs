@@ -123,7 +123,7 @@ pub fn decryption(key: &[u8], iv: &[u8], input: &[u8], hmac: &[u8]) -> Result<()
 
     // Decrypt with AES-128-CBC
     let cipher = Cipher::aes_128_cbc();
-    let plaintext = decrypt(cipher, enc_key.as_slice(), Some(&iv), input)?;
+    let plaintext = decrypt(cipher, enc_key, Some(&iv), input)?;
 
     // Write to the file
     std::fs::write("decoded.txt", plaintext)?;
