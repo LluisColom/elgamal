@@ -1,13 +1,11 @@
-use crate::EPH_PUB_FILE;
-use anyhow::Context;
 use openssl::hash::MessageDigest;
+use openssl::memcmp;
 use openssl::nid::Nid;
 use openssl::pkey::PKey;
 use openssl::rand::rand_bytes;
 use openssl::sha::Sha256;
 use openssl::sign::Signer;
 use openssl::symm::{Cipher, decrypt, encrypt};
-use openssl::{base64, memcmp};
 use std::process::Command;
 
 const AES_KEY_SIZE: usize = 16;
@@ -82,7 +80,7 @@ pub fn session_key(inkey: &str, peerkey: &str) -> Result<Vec<u8>, anyhow::Error>
     Ok(digest.to_vec())
 }
 
-pub fn encryption(key: &[u8], input: &str) -> Result<(), anyhow::Error> {
+pub fn encryption(key: &[u8], input: &str) -> Result<(Vec<u8>, Vec<u8>, Vec<u8>), anyhow::Error> {
     if key.len() != SESSION_KEY_SIZE {
         anyhow::bail!("Encryption key must be {} bytes long", SESSION_KEY_SIZE);
     }
@@ -103,10 +101,7 @@ pub fn encryption(key: &[u8], input: &str) -> Result<(), anyhow::Error> {
     // Generate SHA256-HMAC
     let hmac = generate_hmac(iv.as_slice(), ciphertext.as_slice(), hmac_key)?;
 
-    // Export the ephemeral public key, ciphertext, IV and tag
-    export(&iv, &ciphertext, &hmac)?;
-
-    Ok(())
+    Ok((iv.to_vec(), ciphertext, hmac))
 }
 
 pub fn decryption(key: &[u8], iv: &[u8], input: &[u8], hmac: &[u8]) -> Result<(), anyhow::Error> {
@@ -128,79 +123,6 @@ pub fn decryption(key: &[u8], iv: &[u8], input: &[u8], hmac: &[u8]) -> Result<()
     // Write to the file
     std::fs::write("decoded.txt", plaintext)?;
     Ok(())
-}
-
-fn export(iv: &[u8], ciphertext: &[u8], hmac: &[u8]) -> Result<(), anyhow::Error> {
-    // Prepare export data
-    let eph_pub_key = std::fs::read_to_string(EPH_PUB_FILE)?;
-    let iv_b64 = base64::encode_block(iv);
-    let ciphertext_b64 = base64::encode_block(ciphertext);
-    let hmac_b64 = base64::encode_block(hmac);
-
-    // Create the PEM-style format
-    let content = format!(
-        "{}\
-         -----BEGIN AES-128-CBC IV-----\n\
-         {}\n\
-         -----END AES-128-CBC IV-----\n\
-         -----BEGIN AES-128-CBC CIPHERTEXT-----\n\
-         {}\n\
-         -----END AES-128-CBC CIPHERTEXT-----\n\
-         -----BEGIN SHA256-HMAC TAG-----\n\
-         {}\n\
-         -----END SHA256-HMAC TAG-----",
-        eph_pub_key, iv_b64, ciphertext_b64, hmac_b64
-    );
-
-    // Write to file
-    std::fs::write("ciphertext.txt", content)?;
-    Ok(())
-}
-
-pub fn import(ciphertext: &str) -> Result<(String, Vec<u8>, Vec<u8>, Vec<u8>), anyhow::Error> {
-    let content = std::fs::read_to_string(ciphertext)?;
-
-    // Extract the ephemeral public key
-    let eph_pub_key = content
-        .split("-----BEGIN AES-128-CBC IV-----")
-        .next()
-        .with_context(|| "Failed to extract ephemeral public key")?
-        .to_string();
-
-    // Extract IV
-    let iv = extract_pem_section(&content, "AES-128-CBC IV")?;
-
-    // Extract ciphertext
-    let ciphertext = extract_pem_section(&content, "AES-128-CBC CIPHERTEXT")?;
-
-    // Extract HMAC tag
-    let hmac = extract_pem_section(&content, "SHA256-HMAC TAG")?;
-
-    Ok((eph_pub_key, iv, ciphertext, hmac))
-}
-
-fn extract_pem_section(content: &str, label: &str) -> Result<Vec<u8>, anyhow::Error> {
-    let begin_marker = format!("-----BEGIN {}-----", label);
-    let end_marker = format!("-----END {}-----", label);
-
-    let start = content
-        .find(&begin_marker)
-        .context(format!("Could not find {}", begin_marker))?
-        + begin_marker.len();
-
-    let end = content[start..]
-        .find(&end_marker)
-        .context(format!("Could not find {}", end_marker))?
-        + start;
-
-    // Extract and trim the base64 content
-    let content = content[start..end]
-        .trim()
-        .lines()
-        .map(|line| line.trim())
-        .collect::<String>();
-
-    Ok(base64::decode_block(&content)?)
 }
 
 fn generate_hmac(iv: &[u8], ciphertext: &[u8], key: &[u8]) -> Result<Vec<u8>, anyhow::Error> {

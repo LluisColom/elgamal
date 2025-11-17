@@ -1,5 +1,6 @@
 mod cli;
 mod crypto;
+mod utils;
 
 use clap::{Parser, Subcommand};
 
@@ -51,19 +52,26 @@ fn main() -> Result<(), anyhow::Error> {
             // Derive session key using ECDH
             let key = crypto::session_key(EPH_PRIV_FILE, peer_key.as_str())?;
             // Encrypt the document + HMAC
-            crypto::encryption(&key, document.as_str())?;
+            let (iv, ciphertext, hmac) = crypto::encryption(&key, document.as_str())?;
+            // Write data to ciphertext
+            utils::export(EPH_PUB_FILE, &iv, &ciphertext, &hmac)?;
+            // Remove ephemeral keypair
+            std::fs::remove_file(EPH_PRIV_FILE)?;
+            std::fs::remove_file(EPH_PUB_FILE)?;
             println!("Document encryption successful");
         }
         Command::Decrypt { document } => {
             anyhow::ensure!(std::fs::exists(&document)?, "Ciphertext file not found");
             // Extract data from ciphertext file
-            let (peer_key, iv, ciphertext, hmac) = crypto::import(&document)?;
+            let (peer_key, iv, ciphertext, hmac) = utils::import(&document)?;
             // Store peer ephemeral public key
             std::fs::write(EPH_PUB_FILE, peer_key.as_str())?;
             // Derive session key using ECDH
             let key = crypto::session_key(PRIV_FILE, EPH_PUB_FILE)?;
             // Decrypt the document + HMAC verification
             crypto::decryption(&key, &iv, &ciphertext, &hmac)?;
+            // Remove ephemeral keypair
+            std::fs::remove_file(EPH_PUB_FILE)?;
             println!("Document decryption successful");
         }
         Command::Test => {
