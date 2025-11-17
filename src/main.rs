@@ -36,7 +36,7 @@ fn main() -> Result<(), anyhow::Error> {
             // Generate the EC parameters
             crypto::ec_params(nid, PARAM_FILE)?;
             // Generate the keypair
-            crypto::gen_keypair(nid, PRIV_FILE, PUB_FILE)?;
+            crypto::gen_keypair(PARAM_FILE, PRIV_FILE, PUB_FILE)?;
             println!("Parameter generation successful");
         }
         Command::Encrypt => {
