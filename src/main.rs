@@ -47,7 +47,7 @@ fn main() -> Result<(), anyhow::Error> {
             anyhow::ensure!(std::fs::exists(&document)?, "Plaintext file not found");
             // Generate a new ephemeral keypair
             crypto::gen_priv_key(PARAM_FILE, EPH_PRIV_FILE)?;
-            crypto::gen_pub_key(PRIV_FILE, EPH_PUB_FILE)?;
+            crypto::gen_pub_key(EPH_PRIV_FILE, EPH_PUB_FILE)?;
             // Derive session key using ECDH
             let key = crypto::session_key(EPH_PRIV_FILE, peer_key.as_str())?;
             // Encrypt the document + HMAC
@@ -58,8 +58,10 @@ fn main() -> Result<(), anyhow::Error> {
             anyhow::ensure!(std::fs::exists(&document)?, "Ciphertext file not found");
             // Extract data from ciphertext file
             let (peer_key, iv, ciphertext, hmac) = crypto::import(&document)?;
+            // Store peer ephemeral public key
+            std::fs::write(EPH_PUB_FILE, peer_key.as_str())?;
             // Derive session key using ECDH
-            let key = crypto::session_key(PRIV_FILE, peer_key.as_str())?;
+            let key = crypto::session_key(PRIV_FILE, EPH_PUB_FILE)?;
             // Decrypt the document + HMAC verification
             crypto::decryption(&key, &iv, &ciphertext, &hmac)?;
             println!("Document decryption successful");

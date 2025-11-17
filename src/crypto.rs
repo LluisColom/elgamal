@@ -1,13 +1,13 @@
 use crate::EPH_PUB_FILE;
 use anyhow::Context;
-use openssl::base64;
 use openssl::hash::MessageDigest;
 use openssl::nid::Nid;
 use openssl::pkey::PKey;
 use openssl::rand::rand_bytes;
 use openssl::sha::Sha256;
-use openssl::sign::{Signer, Verifier};
+use openssl::sign::Signer;
 use openssl::symm::{Cipher, decrypt, encrypt};
+use openssl::{base64, memcmp};
 use std::process::Command;
 
 pub fn ec_params(nid: Nid, output_file: &str) -> Result<(), anyhow::Error> {
@@ -115,7 +115,7 @@ pub fn decryption(key: &[u8], iv: &[u8], input: &[u8], hmac: &[u8]) -> Result<()
     let plaintext = decrypt(cipher, enc_key.as_slice(), Some(&iv), input)?;
 
     // Write to the file
-    std::fs::write("plaintext.txt", plaintext)?;
+    std::fs::write("decoded.txt", plaintext)?;
     Ok(())
 }
 
@@ -209,15 +209,9 @@ fn verify_hmac(
     key: &[u8],
     iv: &[u8],
     ciphertext: &[u8],
-    hmac: &[u8],
+    received_hmac: &[u8],
 ) -> Result<bool, anyhow::Error> {
-    // Reconstruct the data that was authenticated
-    let mut mac_data = Vec::with_capacity(iv.len() + ciphertext.len());
-    mac_data.extend_from_slice(iv);
-    mac_data.extend_from_slice(ciphertext);
-
-    let hmac_key = PKey::hmac(key)?;
-    let mut verifier = Verifier::new(MessageDigest::sha256(), &hmac_key)?;
-    verifier.update(&mac_data)?;
-    Ok(verifier.verify(hmac)?)
+    let generated_hmac = generate_hmac(iv, ciphertext, key)?;
+    // Use OpenSSL's constant-time comparison
+    Ok(memcmp::eq(&generated_hmac, received_hmac))
 }
