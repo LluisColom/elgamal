@@ -10,6 +10,10 @@ use openssl::symm::{Cipher, decrypt, encrypt};
 use openssl::{base64, memcmp};
 use std::process::Command;
 
+const AES_KEY_SIZE: usize = 16;
+const SESSION_KEY_SIZE: usize = 32;
+const IV_SIZE: usize = 16;
+
 pub fn ec_params(nid: Nid, output_file: &str) -> Result<(), anyhow::Error> {
     let curve_name = nid.long_name()?;
     // No available rust bindings, so use the CLI
@@ -79,17 +83,17 @@ pub fn session_key(inkey: &str, peerkey: &str) -> Result<Vec<u8>, anyhow::Error>
 }
 
 pub fn encryption(key: &[u8], input: &str) -> Result<(), anyhow::Error> {
-    if key.len() != 32 {
-        anyhow::bail!("Encryption key must be 32 bytes long");
+    if key.len() != SESSION_KEY_SIZE {
+        anyhow::bail!("Encryption key must be {} bytes long", SESSION_KEY_SIZE);
     }
-    let enc_key = &key[..16];
-    let hmac_key = &key[16..];
+    let enc_key = &key[..AES_KEY_SIZE];
+    let hmac_key = &key[AES_KEY_SIZE..];
 
     // Read the plain text
     let plaintext = std::fs::read(input)?;
 
     // Generate a random IV
-    let mut iv = [0u8; 16];
+    let mut iv = [0u8; IV_SIZE];
     rand_bytes(&mut iv)?;
 
     // Encrypt with AES-128-CBC
@@ -106,11 +110,11 @@ pub fn encryption(key: &[u8], input: &str) -> Result<(), anyhow::Error> {
 }
 
 pub fn decryption(key: &[u8], iv: &[u8], input: &[u8], hmac: &[u8]) -> Result<(), anyhow::Error> {
-    if key.len() != 32 {
-        anyhow::bail!("Encryption key must be 32 bytes long");
+    if key.len() != SESSION_KEY_SIZE {
+        anyhow::bail!("Encryption key must be {} bytes long", SESSION_KEY_SIZE);
     }
-    let enc_key = key[..16].to_vec();
-    let hmac_key = key[16..].to_vec();
+    let enc_key = key[..AES_KEY_SIZE].to_vec();
+    let hmac_key = key[AES_KEY_SIZE..].to_vec();
 
     // HMAC verification
     if !verify_hmac(&hmac_key, &iv, &input, &hmac)? {
