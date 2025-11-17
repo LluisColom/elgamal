@@ -71,7 +71,7 @@ fn main() -> Result<(), anyhow::Error> {
             let key = crypto::session_key(PRIV_FILE, EPH_PUB_FILE)?;
             // Decrypt the document + HMAC verification
             let decoded = crypto::decryption(&key, &iv, &ciphertext, &hmac)?;
-            std::fs::write(DECODED, decoded)?;g
+            std::fs::write(DECODED, decoded)?;gi
             // Remove ephemeral keypair
             std::fs::remove_file(EPH_PUB_FILE)?;
             println!("Document decryption successful");
