@@ -1,12 +1,13 @@
 use crate::EPH_PUB_FILE;
+use anyhow::Context;
 use openssl::base64;
 use openssl::hash::MessageDigest;
 use openssl::nid::Nid;
 use openssl::pkey::PKey;
 use openssl::rand::rand_bytes;
 use openssl::sha::Sha256;
-use openssl::sign::Signer;
-use openssl::symm::{Cipher, encrypt};
+use openssl::sign::{Signer, Verifier};
+use openssl::symm::{Cipher, decrypt, encrypt};
 use std::process::Command;
 
 pub fn ec_params(nid: Nid, output_file: &str) -> Result<(), anyhow::Error> {
@@ -88,17 +89,33 @@ pub fn encryption(key: &[u8], input: &str) -> Result<(), anyhow::Error> {
     let cipher = Cipher::aes_128_cbc();
     let ciphertext = encrypt(cipher, enc_key.as_slice(), Some(&iv), plaintext.as_slice())?;
 
-    // Prepare data for HMAC
-    let mut mac_data = Vec::with_capacity(iv.len() + ciphertext.len());
-    mac_data.extend_from_slice(&iv);
-    mac_data.extend_from_slice(&ciphertext);
-
     // Generate SHA256-HMAC
-    let hmac = generate_hmac(&mac_data, hmac_key.as_slice())?;
+    let hmac = generate_hmac(iv.as_slice(), ciphertext.as_slice(), hmac_key.as_slice())?;
 
     // Export the ephemeral public key, ciphertext, IV and tag
     export(&iv, &ciphertext, &hmac)?;
 
+    Ok(())
+}
+
+pub fn decryption(key: &[u8], iv: &[u8], input: &[u8], hmac: &[u8]) -> Result<(), anyhow::Error> {
+    if key.len() != 32 {
+        anyhow::bail!("Encryption key must be 32 bytes long");
+    }
+    let enc_key = key[..16].to_vec();
+    let hmac_key = key[16..].to_vec();
+
+    // HMAC verification
+    if !verify_hmac(&hmac_key, &iv, &input, &hmac)? {
+        anyhow::bail!("HMAC verification failed");
+    }
+
+    // Decrypt with AES-128-CBC
+    let cipher = Cipher::aes_128_cbc();
+    let plaintext = decrypt(cipher, enc_key.as_slice(), Some(&iv), input)?;
+
+    // Write to the file
+    std::fs::write("plaintext.txt", plaintext)?;
     Ok(())
 }
 
@@ -129,10 +146,78 @@ fn export(iv: &[u8], ciphertext: &[u8], hmac: &[u8]) -> Result<(), anyhow::Error
     Ok(())
 }
 
-fn generate_hmac(data: &[u8], key: &[u8]) -> Result<Vec<u8>, anyhow::Error> {
+pub fn import(ciphertext: &str) -> Result<(String, Vec<u8>, Vec<u8>, Vec<u8>), anyhow::Error> {
+    let content = std::fs::read_to_string(ciphertext)?;
+
+    // Extract the ephemeral public key
+    let eph_pub_key = content
+        .split("-----BEGIN AES-128-CBC IV-----")
+        .next()
+        .with_context(|| "Failed to extract ephemeral public key")?
+        .to_string();
+
+    // Extract IV
+    let iv = extract_pem_section(&content, "AES-128-CBC IV")?;
+
+    // Extract ciphertext
+    let ciphertext = extract_pem_section(&content, "AES-128-CBC CIPHERTEXT")?;
+
+    // Extract HMAC tag
+    let hmac = extract_pem_section(&content, "SHA256-HMAC TAG")?;
+
+    Ok((eph_pub_key, iv, ciphertext, hmac))
+}
+
+fn extract_pem_section(content: &str, label: &str) -> Result<Vec<u8>, anyhow::Error> {
+    let begin_marker = format!("-----BEGIN {}-----", label);
+    let end_marker = format!("-----END {}-----", label);
+
+    let start = content
+        .find(&begin_marker)
+        .context(format!("Could not find {}", begin_marker))?
+        + begin_marker.len();
+
+    let end = content[start..]
+        .find(&end_marker)
+        .context(format!("Could not find {}", end_marker))?
+        + start;
+
+    // Extract and trim the base64 content
+    let content = content[start..end]
+        .trim()
+        .lines()
+        .map(|line| line.trim())
+        .collect::<String>();
+
+    Ok(base64::decode_block(&content)?)
+}
+
+fn generate_hmac(iv: &[u8], ciphertext: &[u8], key: &[u8]) -> Result<Vec<u8>, anyhow::Error> {
+    // Construct the data to be authenticated
+    let mut mac_data = Vec::with_capacity(iv.len() + ciphertext.len());
+    mac_data.extend_from_slice(&iv);
+    mac_data.extend_from_slice(&ciphertext);
+
     let hmac_key = PKey::hmac(key)?;
     let mut signer = Signer::new(MessageDigest::sha256(), &hmac_key)?;
-    signer.update(data)?;
+    signer.update(&mac_data)?;
     let hmac = signer.sign_to_vec()?;
     Ok(hmac)
+}
+
+fn verify_hmac(
+    key: &[u8],
+    iv: &[u8],
+    ciphertext: &[u8],
+    hmac: &[u8],
+) -> Result<bool, anyhow::Error> {
+    // Reconstruct the data that was authenticated
+    let mut mac_data = Vec::with_capacity(iv.len() + ciphertext.len());
+    mac_data.extend_from_slice(iv);
+    mac_data.extend_from_slice(ciphertext);
+
+    let hmac_key = PKey::hmac(key)?;
+    let mut verifier = Verifier::new(MessageDigest::sha256(), &hmac_key)?;
+    verifier.update(&mac_data)?;
+    Ok(verifier.verify(hmac)?)
 }

@@ -23,7 +23,7 @@ enum Command {
     /// Encrypts a document
     Encrypt { peer_key: String, document: String },
     /// Decrypts a document
-    Decrypt,
+    Decrypt { document: String },
     /// Verify a proof
     Test,
 }
@@ -43,8 +43,8 @@ fn main() -> Result<(), anyhow::Error> {
             println!("Parameter generation successful");
         }
         Command::Encrypt { peer_key, document } => {
-            anyhow::ensure!(std::fs::exists(&peer_key)?, "Peer key file does not exist");
-            anyhow::ensure!(std::fs::exists(&document)?, "Plaintext file does not exist");
+            anyhow::ensure!(std::fs::exists(&peer_key)?, "Peer key file not found");
+            anyhow::ensure!(std::fs::exists(&document)?, "Plaintext file not found");
             // Generate a new ephemeral keypair
             crypto::gen_priv_key(PARAM_FILE, EPH_PRIV_FILE)?;
             crypto::gen_pub_key(PRIV_FILE, EPH_PUB_FILE)?;
@@ -54,9 +54,15 @@ fn main() -> Result<(), anyhow::Error> {
             crypto::encryption(&key, document.as_str())?;
             println!("Document encryption successful");
         }
-        Command::Decrypt => {
-            // ensure!();
-            println!("Document encryption successful");
+        Command::Decrypt { document } => {
+            anyhow::ensure!(std::fs::exists(&document)?, "Ciphertext file not found");
+            // Extract data from ciphertext file
+            let (peer_key, iv, ciphertext, hmac) = crypto::import(&document)?;
+            // Derive session key using ECDH
+            let key = crypto::session_key(PRIV_FILE, peer_key.as_str())?;
+            // Decrypt the document + HMAC verification
+            crypto::decryption(&key, &iv, &ciphertext, &hmac)?;
+            println!("Document decryption successful");
         }
         Command::Test => {
             println!("Test suite run successful");
