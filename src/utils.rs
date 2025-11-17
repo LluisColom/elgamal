@@ -2,6 +2,7 @@ use anyhow::Context;
 use openssl::base64;
 
 pub fn export(
+    output: &str,
     pub_key: &str,
     iv: &[u8],
     ciphertext: &[u8],
@@ -29,7 +30,7 @@ pub fn export(
     );
 
     // Write to file
-    std::fs::write("ciphertext.txt", content)?;
+    std::fs::write(output, content)?;
     Ok(())
 }
 

@@ -1,4 +1,4 @@
-use cliclack::select;
+use cliclack::{input, select};
 use openssl::nid::Nid;
 
 pub fn choose_group() -> Result<Nid, anyhow::Error> {
@@ -14,4 +14,14 @@ pub fn choose_group() -> Result<Nid, anyhow::Error> {
         .interact()?;
 
     Ok(nid)
+}
+
+pub fn choose_file(msg: &str, default: &str) -> Result<String, anyhow::Error> {
+    // Prompt user for file (if not provided)
+    let input = input(msg)
+        .default_input(default)
+        .placeholder(default)
+        .interact()?;
+
+    Ok(input)
 }
