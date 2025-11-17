@@ -11,7 +11,7 @@ pub fn ec_params(nid: Nid, output_file: &str) -> Result<(), anyhow::Error> {
     let curve_name = nid.long_name()?;
     // No available rust bindings, so use the CLI
     Command::new("openssl")
-        .args(&["ecparam", "-name", curve_name, "-out", output_file])
+        .args(["ecparam", "-name", curve_name, "-out", output_file])
         .output()?;
     Ok(())
 }
@@ -19,7 +19,7 @@ pub fn ec_params(nid: Nid, output_file: &str) -> Result<(), anyhow::Error> {
 pub fn gen_priv_key(param_file: &str, output: &str) -> Result<(), anyhow::Error> {
     // No available rust bindings, so use the CLI
     let output = Command::new("openssl")
-        .args(&["genpkey", "-paramfile", param_file, "-out", output])
+        .args(["genpkey", "-paramfile", param_file, "-out", output])
         .output()?;
 
     if !output.status.success() {
@@ -33,7 +33,7 @@ pub fn gen_priv_key(param_file: &str, output: &str) -> Result<(), anyhow::Error>
 
 pub fn gen_pub_key(input: &str, output: &str) -> Result<(), anyhow::Error> {
     let output = Command::new("openssl")
-        .args(&["pkey", "-in", input, "-pubout", "-out", output])
+        .args(["pkey", "-in", input, "-pubout", "-out", output])
         .output()?;
 
     if !output.status.success() {
@@ -47,7 +47,7 @@ pub fn gen_pub_key(input: &str, output: &str) -> Result<(), anyhow::Error> {
 
 pub fn gen_secret(inkey: &str, peerkey: &str, output: &str) -> Result<(), anyhow::Error> {
     let output = Command::new("openssl")
-        .args(&[
+        .args([
             "pkeyutl", "-derive", "-inkey", inkey, "-peerkey", peerkey, "-out", output,
         ])
         .output()?;
