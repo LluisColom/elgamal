@@ -1,3 +1,5 @@
+use crate::EPH_PUB_FILE;
+use openssl::base64;
 use openssl::hash::MessageDigest;
 use openssl::nid::Nid;
 use openssl::pkey::PKey;
@@ -94,11 +96,36 @@ pub fn encryption(key: &[u8], input: &str) -> Result<(), anyhow::Error> {
     // Generate SHA256-HMAC
     let hmac = generate_hmac(&mac_data, hmac_key.as_slice())?;
 
-    // Export the ciphertext, IV and tag
-    std::fs::write("ciphertext.bin", ciphertext)?;
-    std::fs::write("iv.bin", iv)?;
-    std::fs::write("tag.bin", hmac)?;
+    // Export the ephemeral public key, ciphertext, IV and tag
+    export(&iv, &ciphertext, &hmac)?;
 
+    Ok(())
+}
+
+fn export(iv: &[u8], ciphertext: &[u8], hmac: &[u8]) -> Result<(), anyhow::Error> {
+    // Prepare export data
+    let eph_pub_key = std::fs::read_to_string(EPH_PUB_FILE)?;
+    let iv_b64 = base64::encode_block(iv);
+    let ciphertext_b64 = base64::encode_block(ciphertext);
+    let hmac_b64 = base64::encode_block(hmac);
+
+    // Create the PEM-style format
+    let content = format!(
+        "{}\
+         -----BEGIN AES-128-CBC IV-----\n\
+         {}\n\
+         -----END AES-128-CBC IV-----\n\
+         -----BEGIN AES-128-CBC CIPHERTEXT-----\n\
+         {}\n\
+         -----END AES-128-CBC CIPHERTEXT-----\n\
+         -----BEGIN SHA256-HMAC TAG-----\n\
+         {}\n\
+         -----END SHA256-HMAC TAG-----",
+        eph_pub_key, iv_b64, ciphertext_b64, hmac_b64
+    );
+
+    // Write to file
+    std::fs::write("ciphertext.txt", content)?;
     Ok(())
 }
 
