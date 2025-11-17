@@ -82,8 +82,8 @@ pub fn encryption(key: &[u8], input: &str) -> Result<(), anyhow::Error> {
     if key.len() != 32 {
         anyhow::bail!("Encryption key must be 32 bytes long");
     }
-    let enc_key = key[..16].to_vec();
-    let hmac_key = key[16..].to_vec();
+    let enc_key = &key[..16];
+    let hmac_key = &key[16..];
 
     // Read the plain text
     let plaintext = std::fs::read(input)?;
@@ -94,10 +94,10 @@ pub fn encryption(key: &[u8], input: &str) -> Result<(), anyhow::Error> {
 
     // Encrypt with AES-128-CBC
     let cipher = Cipher::aes_128_cbc();
-    let ciphertext = encrypt(cipher, enc_key.as_slice(), Some(&iv), plaintext.as_slice())?;
+    let ciphertext = encrypt(cipher, enc_key, Some(&iv), plaintext.as_slice())?;
 
     // Generate SHA256-HMAC
-    let hmac = generate_hmac(iv.as_slice(), ciphertext.as_slice(), hmac_key.as_slice())?;
+    let hmac = generate_hmac(iv.as_slice(), ciphertext.as_slice(), hmac_key)?;
 
     // Export the ephemeral public key, ciphertext, IV and tag
     export(&iv, &ciphertext, &hmac)?;
