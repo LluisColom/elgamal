@@ -2,36 +2,24 @@ mod cli;
 mod crypto;
 mod utils;
 
-use clap::{Parser, Subcommand};
-
 // Auxiliary ephemeral keypair filenames
 const EPH_PRIV_FILE: &str = "ephpkey.pem";
 const EPH_PUB_FILE: &str = "ephpubkey.pem";
 
-#[derive(Parser, Debug)]
-#[command(author, version, about)]
-struct Args {
-    #[command(subcommand)]
-    command: Command,
-}
-
-#[derive(Debug, Subcommand)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 enum Command {
     /// EC parameters and key generation
     Param,
     /// Encrypts a document
-    Encrypt { peer_key: String, document: String },
+    Encrypt,
     /// Decrypts a document
-    Decrypt { document: String },
+    Decrypt,
     /// Verify a proof
     Test,
 }
 
 fn main() -> Result<(), anyhow::Error> {
-    // Parse the command line arguments
-    let args = Args::parse();
-
-    match args.command {
+    match cli::choose_functionality()? {
         Command::Param => {
             let nid = cli::choose_group()?;
             // Generate the EC parameters
@@ -44,8 +32,10 @@ fn main() -> Result<(), anyhow::Error> {
             crypto::gen_pub_key(private.as_str(), public.as_str())?;
             println!("Parameter generation successful");
         }
-        Command::Encrypt { peer_key, document } => {
+        Command::Encrypt => {
+            let peer_key = cli::choose_file("Peer key file name:", "")?;
             anyhow::ensure!(std::fs::exists(&peer_key)?, "Peer key file not found");
+            let document = cli::choose_file("Document file name:", "")?;
             anyhow::ensure!(std::fs::exists(&document)?, "Plaintext file not found");
             // Generate a new ephemeral keypair
             let params = cli::choose_file("Params file name:", "data/params.pem")?;
@@ -63,7 +53,8 @@ fn main() -> Result<(), anyhow::Error> {
             std::fs::remove_file(EPH_PUB_FILE)?;
             println!("Document encryption successful");
         }
-        Command::Decrypt { document } => {
+        Command::Decrypt => {
+            let document = cli::choose_file("Document file name:", "")?;
             anyhow::ensure!(std::fs::exists(&document)?, "Ciphertext file not found");
             // Extract data from ciphertext file
             let (peer_key, iv, ciphertext, hmac) = utils::import(&document)?;

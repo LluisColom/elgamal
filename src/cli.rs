@@ -1,5 +1,17 @@
+use super::Command;
 use cliclack::{input, select};
 use openssl::nid::Nid;
+
+pub fn choose_functionality() -> Result<Command, anyhow::Error> {
+    let command = select("Select functionality:")
+        .item(Command::Param, "EC parameters and key generation", "")
+        .item(Command::Encrypt, "Document encryption", "")
+        .item(Command::Decrypt, "Document decryption", "")
+        .item(Command::Test, "Test suite", "")
+        .interact()?;
+
+    Ok(command)
+}
 
 pub fn choose_group() -> Result<Nid, anyhow::Error> {
     let ec_groups = vec![
@@ -17,11 +29,15 @@ pub fn choose_group() -> Result<Nid, anyhow::Error> {
 }
 
 pub fn choose_file(msg: &str, default: &str) -> Result<String, anyhow::Error> {
-    // Prompt user for file (if not provided)
-    let input = input(msg)
-        .default_input(default)
-        .placeholder(default)
-        .interact()?;
+    // Prompt user for file name
+    let input = if default.is_empty() {
+        input(msg).interact()?
+    } else {
+        input(msg)
+            .default_input(default)
+            .placeholder(default)
+            .interact()?
+    };
 
     Ok(input)
 }

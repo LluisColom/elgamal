@@ -5,8 +5,5 @@ edition = "2024"
 
 [dependencies]
 anyhow = "1.0.100"
-clap = { version = "4.5.51", features = ["derive"] }
 cliclack = "0.3.6"
-hex = "0.4.3"
 openssl = "0.10.73"
-rand = "0.9.1"
