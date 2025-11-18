@@ -7,7 +7,6 @@ pub fn choose_functionality() -> Result<Command, anyhow::Error> {
         .item(Command::Param, "EC parameters and key generation", "")
         .item(Command::Encrypt, "Document encryption", "")
         .item(Command::Decrypt, "Document decryption", "")
-        .item(Command::Test, "Test suite", "")
         .interact()?;
 
     Ok(command)

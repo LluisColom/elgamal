@@ -14,8 +14,6 @@ enum Command {
     Encrypt,
     /// Decrypts a document
     Decrypt,
-    /// Verify a proof
-    Test,
 }
 
 fn main() -> Result<(), anyhow::Error> {
@@ -71,9 +69,6 @@ fn main() -> Result<(), anyhow::Error> {
             // Remove ephemeral keypair
             std::fs::remove_file(EPH_PUB_FILE)?;
             println!("Document decryption successful");
-        }
-        Command::Test => {
-            println!("Test suite run successful");
         }
     }
     Ok(())
