@@ -28,7 +28,7 @@ pub fn ec_params(nid: Nid, output_file: &str) -> Result<(), anyhow::Error> {
     Ok(())
 }
 
-pub fn gen_priv_key(param_file: &str, output: &str) -> Result<(), anyhow::Error> {
+pub fn new_private(param_file: &str, output: &str) -> Result<(), anyhow::Error> {
     // No available rust bindings, so use the CLI
     let output = Command::new("openssl")
         .args(["genpkey", "-paramfile", param_file, "-out", output])
@@ -43,7 +43,7 @@ pub fn gen_priv_key(param_file: &str, output: &str) -> Result<(), anyhow::Error>
     Ok(())
 }
 
-pub fn gen_pub_key(input: &str, output: &str) -> Result<(), anyhow::Error> {
+pub fn new_public(input: &str, output: &str) -> Result<(), anyhow::Error> {
     let output = Command::new("openssl")
         .args(["pkey", "-in", input, "-pubout", "-out", output])
         .output()?;

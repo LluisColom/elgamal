@@ -25,9 +25,9 @@ fn main() -> Result<(), anyhow::Error> {
             crypto::ec_params(nid, params.as_str())?;
             // Generate the keypair
             let private = cli::choose_file("Private key file name:", "data/priv.pem")?;
-            crypto::gen_priv_key(params.as_str(), private.as_str())?;
+            crypto::new_private(params.as_str(), private.as_str())?;
             let public = cli::choose_file("Public key file name:", "data/pub.pem")?;
-            crypto::gen_pub_key(private.as_str(), public.as_str())?;
+            crypto::new_public(private.as_str(), public.as_str())?;
             println!("Parameter generation successful");
         }
         Command::Encrypt => {
@@ -37,8 +37,8 @@ fn main() -> Result<(), anyhow::Error> {
             anyhow::ensure!(std::fs::exists(&document)?, "Plaintext file not found");
             // Generate a new ephemeral keypair
             let params = cli::choose_file("Params file name:", "data/params.pem")?;
-            crypto::gen_priv_key(params.as_str(), EPH_PRIV_FILE)?;
-            crypto::gen_pub_key(EPH_PRIV_FILE, EPH_PUB_FILE)?;
+            crypto::new_private(params.as_str(), EPH_PRIV_FILE)?;
+            crypto::new_public(EPH_PRIV_FILE, EPH_PUB_FILE)?;
             // Derive session key using ECDH
             let key = crypto::session_key(EPH_PRIV_FILE, peer_key.as_str())?;
             // Encrypt the document + HMAC
