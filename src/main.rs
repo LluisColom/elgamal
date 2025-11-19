@@ -17,6 +17,7 @@ enum Command {
 }
 
 fn main() -> Result<(), anyhow::Error> {
+    cli::introduction()?;
     match cli::choose_functionality()? {
         Command::Param => {
             let nid = cli::choose_group()?;
@@ -71,5 +72,6 @@ fn main() -> Result<(), anyhow::Error> {
             println!("Document decryption successful");
         }
     }
+    cli::closing()?;
     Ok(())
 }

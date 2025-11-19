@@ -1,6 +1,16 @@
 use super::Command;
-use cliclack::{input, select};
+use cliclack::{input, intro, outro, select};
 use openssl::nid::Nid;
+
+pub fn introduction() -> Result<(), anyhow::Error> {
+    intro("Welcome to the ECDH-based encryption tool!")?;
+    Ok(())
+}
+
+pub fn closing() -> Result<(), anyhow::Error> {
+    outro("Done")?;
+    Ok(())
+}
 
 pub fn choose_functionality() -> Result<Command, anyhow::Error> {
     let command = select("Select functionality:")
