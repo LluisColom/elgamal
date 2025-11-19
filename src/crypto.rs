@@ -141,13 +141,13 @@ pub fn decryption(
     let hmac_key = &key[AES_KEY_SIZE..];
 
     // HMAC verification
-    if !verify_hmac(&hmac_key, &iv, &input, &hmac)? {
+    if !verify_hmac(hmac_key, iv, input, hmac)? {
         anyhow::bail!("HMAC verification failed");
     }
 
     // Decrypt with AES-128-CBC
     let cipher = Cipher::aes_128_cbc();
-    let plaintext = decrypt(cipher, enc_key, Some(&iv), input)?;
+    let plaintext = decrypt(cipher, enc_key, Some(iv), input)?;
 
     Ok(plaintext)
 }
@@ -155,8 +155,8 @@ pub fn decryption(
 fn generate_hmac(iv: &[u8], ciphertext: &[u8], key: &[u8]) -> Result<Vec<u8>, anyhow::Error> {
     // Construct the data to be authenticated
     let mut mac_data = Vec::with_capacity(iv.len() + ciphertext.len());
-    mac_data.extend_from_slice(&iv);
-    mac_data.extend_from_slice(&ciphertext);
+    mac_data.extend_from_slice(iv);
+    mac_data.extend_from_slice(ciphertext);
 
     let hmac_key = PKey::hmac(key)?;
     let mut signer = Signer::new(MessageDigest::sha256(), &hmac_key)?;
