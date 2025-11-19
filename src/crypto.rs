@@ -12,16 +12,40 @@ const AES_KEY_SIZE: usize = 16;
 const SESSION_KEY_SIZE: usize = 32;
 const IV_SIZE: usize = 16;
 
-pub fn ec_params(nid: Nid, output_file: &str) -> Result<(), anyhow::Error> {
-    let curve_name = nid.long_name()?;
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub enum CryptoGroup {
+    EC(Nid),
+    DH, // RFC 5114 Group 3
+}
+
+pub fn new_params(group: CryptoGroup, output_file: &str) -> Result<(), anyhow::Error> {
     // No available rust bindings, so use the CLI
-    let output = Command::new("openssl")
-        .args(["ecparam", "-name", curve_name, "-out", output_file])
-        .output()?;
+    let output = match group {
+        CryptoGroup::EC(nid) => {
+            let curve_name = nid.long_name()?;
+            Command::new("openssl")
+                .args(["ecparam", "-name", curve_name, "-out", output_file])
+                .output()?
+        }
+        CryptoGroup::DH => {
+            Command::new("openssl")
+                .args([
+                    "genpkey",
+                    "-genparam",
+                    "-algorithm",
+                    "DHX",
+                    "-pkeyopt",
+                    "dh_rfc5114:3", // Always use group 3
+                    "-out",
+                    output_file,
+                ])
+                .output()?
+        }
+    };
 
     if !output.status.success() {
         anyhow::bail!(
-            "Failed to generate EC parameters: {}",
+            "Failed to generate DH parameters: {}",
             String::from_utf8_lossy(&output.stderr)
         );
     }

@@ -15,10 +15,10 @@ fn main() -> Result<(), anyhow::Error> {
     match args.command {
         Command::Param => {
             cli::introduction()?;
-            let nid = cli::choose_group()?;
-            // Generate the EC parameters
+            let group = cli::choose_group()?;
+            // Generate the DH parameters
             let params = cli::choose_file("Params file name:", "data/params.pem")?;
-            crypto::ec_params(nid, params.as_str())?;
+            crypto::new_params(group, params.as_str())?;
             // Generate the keypair
             let private = cli::choose_file("Private key file name:", "data/priv.pem")?;
             crypto::new_private(params.as_str(), private.as_str())?;
