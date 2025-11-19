@@ -1,25 +1,41 @@
-use super::Command;
-use cliclack::{input, intro, outro, select};
+use clap::{Parser, Subcommand};
+use cliclack::{input, intro, select};
 use openssl::nid::Nid;
+
+#[derive(Parser, Debug)]
+#[command(name = "ec-crypto")]
+#[command(about = "Elliptic Curve Encryption Tool")]
+pub struct Args {
+    #[command(subcommand)]
+    pub command: Command,
+}
+
+#[derive(Debug, Subcommand)]
+pub enum Command {
+    Param,
+    Encrypt {
+        #[arg(short, long)]
+        peer_key: String,
+        #[arg(short, long)]
+        document: String,
+        #[arg(short, long)]
+        parameters: String,
+        #[arg(short, long)]
+        output: String,
+    },
+    Decrypt {
+        #[arg(short, long)]
+        document: String,
+        #[arg(short, long)]
+        private_key: String,
+        #[arg(short, long)]
+        output: String,
+    },
+}
 
 pub fn introduction() -> Result<(), anyhow::Error> {
     intro("Welcome to the ECDH-based encryption tool!")?;
     Ok(())
-}
-
-pub fn closing() -> Result<(), anyhow::Error> {
-    outro("Done")?;
-    Ok(())
-}
-
-pub fn choose_functionality() -> Result<Command, anyhow::Error> {
-    let command = select("Select functionality:")
-        .item(Command::Param, "EC parameters and key generation", "")
-        .item(Command::Encrypt, "Document encryption", "")
-        .item(Command::Decrypt, "Document decryption", "")
-        .interact()?;
-
-    Ok(command)
 }
 
 pub fn choose_group() -> Result<Nid, anyhow::Error> {
